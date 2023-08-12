@@ -1,0 +1,19 @@
+{ 
+"experiments":
+    [
+        {
+        "folder": "./data_icgc",
+        "expression_file": "exp_seq.LIRI-JP.tsv.gz",
+        "identifier": "lirijp",
+        "labels_file": "lirijp_sample_labels.tsv",
+        "trained_model": ""
+        },
+        {
+        "folder": "./data_icgc",
+        "expression_file": "exp_seq.LICA-FR.tsv.gz",
+        "identifier": "licafr",
+        "labels_file": "",
+        "trained_model": ""
+        }
+    ]
+}
