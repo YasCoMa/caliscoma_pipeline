@@ -36,10 +36,10 @@ This pipeline contains the following functions:
 3. For the liri-jp project, the labels file is already processed, to given an example of a project that run all steps proposed by this workflow
 
 ### Run analysis
-- Run all steps: ````python3 main.py 0 config.json````
-- Run only data processing: ````python3 main.py 1 config.json````
-- Run only model training & modified pathway score matrix: ````python3 main.py 2 config.json````
-- Run only drug ranking: ````python3 main.py 3 config.json````
+- Run all steps: ````python3 main.py -rt 0 -cf config.json````
+- Run only data processing: ````python3 main.py -rt 1 -cf config.json````
+- Run only model training & modified pathway score matrix: ````python3 main.py -rt 2 -cf config.json````
+- Run only drug ranking: ````python3 main.py -rt 3 -cf config.json````
 
 ### Optimizing the w1, w2 and w3 weights for scoring matrix
 - After running all steps for the liri-jp, you may execute the optimization: ````python3 optimization_scoring_weights.py````
