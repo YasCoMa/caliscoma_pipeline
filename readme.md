@@ -41,6 +41,11 @@ This pipeline contains the following functions:
 - Run only model training & modified pathway score matrix: ````python3 main.py 2 config.json````
 - Run only drug ranking: ````python3 main.py 3 config.json````
 
+### Optimizing the w1, w2 and w3 weights for scoring matrix
+- After running all steps for the liri-jp, you may execute the optimization: ````python3 optimization_scoring_weights.py````
+- This optimization example is based on the approved drugs mapped to drugbank ids for liver cancer. It tests the weights in a range of 0 to 30 (you may change as you want). The evaluation function tests and try to maximize the number of approved drugs whose modified pathway scores for disease samples is changed from disease to healthy sample classification, according to the trained model.
+- Use the three weights returned changing the call to the compute_scoring_matrix function in the run method located in the buil_scoring_matrix.py file.
+
 ## Reference
 
 ## Bug Report
