@@ -1,6 +1,6 @@
 # Pipeline for drug ranking based on computed pathway scores of disease and healthy samples
 
-Python3 pipeline inspired in the [simdrugs](https://github.com/sepehrgolriz/simdrugs/tree/main) repository, to structure and automatize the data processing, model training, drug-based calibrated pathway scores computation and drug ranking.
+Python3 pipeline inspired in the [simdrugs](https://github.com/sepehrgolriz/simdrugs/tree/main) repository, to structure and automatize the data processing, model training, drug-based calibrated pathway scores computation and drug ranking. This pipeline implements all the steps proposed for drug response simulation in [this article](https://www.nature.com/articles/s41540-021-00199-1#Sec8), and automatizes the data generation process, adding an example of optimization algorithm for the scoring matrix.
 
 ## Summary
 
