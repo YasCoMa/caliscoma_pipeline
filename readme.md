@@ -10,8 +10,8 @@ This pipeline contains the following functions:
 (3) Drug ranking based on the disease samples whose calibrated matrix were responsible to change the trained model decision from disease to healthy state.
             
 ## Input configuration file:
-* The pipeline only needs a configuration file as a parameter:
-- Configuration file parameters:
+* The pipeline only needs a configuration file and the step number you want to run.
+- Configuration file keys (see also the example in config.json):
     - folder: working directory
     - expression_file: compressed gene expression file for the desired icgc project, it must be separated by tabulation. The following columns are mandatory: submitted_file_id (sample names), raw_read_count (the read counts without normalization) and gene_id (genes in ensembl or hgnc symbol)
     - type_norm: normalization type (tpm, fpkm or fpkm_uq (upper quartile))
