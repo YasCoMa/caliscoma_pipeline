@@ -16,7 +16,7 @@ This pipeline contains the following functions:
     - expression_file: compressed gene expression file for the desired icgc project, it must be separated by tabulation. The following columns are mandatory: submitted_file_id (sample names), raw_read_count (the read counts without normalization) and gene_id (genes in ensembl or hgnc symbol)
     - type_normalization: normalization type (possible values: tpm, fpkm, tmm, cpm or fpkm_uq)
     - genome_assembly: the supported assemblies are the 37 and 38 (values may be: g37 or g38)
-    - pathway_geneset: pathway-based gene sets, choose one identifier from the list in genesets_available.txt
+    - pathway_geneset: pathway-based gene sets, choose one identifier from the list in [genesets_available.txt](https://github.com/YasCoMa/caliscoma_pipeline/blob/master/genesets_available.txt)
     - identifier: project identifier to be used in the result files
     - labels_file (optional for part 1): file with two columns, one named 'sample' corresponding to the unique values of submitted_sample_id; the second named 'label' corresponding to a disease (or confirmed tumour) (1) or a healthy (0) case
     - trained_model (optional for part 1): file with the trained model to separate healthy and disease cases
