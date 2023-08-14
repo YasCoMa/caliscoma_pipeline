@@ -81,6 +81,46 @@ class Pipeline_drugResponseCalibration:
             
         return flag
     
+    def _check_norm(self, e):
+        norm = 'fpkm_uq'
+        gtf = ''
+        
+        flag = False
+        if( ('type_normalization' in e) and ('genome_assembly' in e) ):
+            if ( (e['type_normalization']!='' and e['type_normalization']!=None) and (e['genome_assembly']!='' and e['genome_assembly']!=None) ):
+                if( (e['type_normalization'] in ['tpm', 'tmm', 'cpm', 'fpkm', 'fpkm_uq']) and (e['genome_assembly'] in ['g37', 'g38']) ):
+                    norm = e['type_normalization']
+                    gtf = e['genome_assembly']
+                else:
+                    if( not (e['type_normalization'] in ['tpm', 'tmm', 'cpm', 'fpkm', 'fpkm_uq']) ):
+                        print("Information - type_normalization is not among available options (tpm, fpkm, tmm, cpm, fpkm_uq), reverting to fpkm_uq")    
+                    if( not (e['genome_assembly'] in ['g37', 'g38']) ):
+                        print("Information - genome_assembly is not among available options (g37, g38), reverting to fpkm_uq")    
+            else:
+                print("Information - type_normalization and/or genome_assembly are empty, reverting to fpkm_uq")
+        else:
+            print("Information - type_normalization and/or genome_assembly are missing, reverting to fpkm_uq ")
+            
+        return norm, gtf
+    
+    def _check_geneset(self, e):
+        path = 'KEGG_2021_HUMAN'
+        pok = open( f'{workflow_path}/genesets_available.txt','r').read().split('\n')
+        
+        flag = False
+        if( ('pathway_geneset' in e) ):
+            if ( (e['pathway_geneset']!='' and e['pathway_geneset']!=None) ):
+                if( (e['pathway_geneset'] in pok) ):
+                    path = e['pathway_geneset']
+                else:
+                    print("Information - pathway_geneset is not among available options in genesets_available.txt, reverting to KEGG_2021_HUMAN")    
+            else:
+                print("Information - pathway_geneset is empty, reverting to KEGG_2021_HUMAN")
+        else:
+            print("Information - pathway_geneset is missing, reverting to KEGG_2021_HUMAN ")
+            
+        return path
+    
     def run(self, option, config):
         if( self._validate_input(config) ):
             if( option in range(4) ):
@@ -91,16 +131,19 @@ class Pipeline_drugResponseCalibration:
                     ide = e['identifier']
                     print(f'Experiment [{ide}]')
                     
+                    normalization, gtf = self._check_norm(e)
+                    geneset = self._check_geneset(e)
+                    
                     flagop = ( option==0 ) 
                     if( flagop or option==1):
                         print('\tStep 1 - Running data processing')
-                        a = ProcessPathwayScores( e['folder'], e['expression_file'], e['identifier'] )
+                        a = ProcessPathwayScores( e['folder'], e['expression_file'], e['identifier'], normalization, gtf, geneset )
                         a.run()
                         
                     if( flagop or option==2): # drug-pathway-gene- ScoringMatrix
                         flag = self._validate_labels(e)
                         if(flag):
-                            a = BuildScoringMatrix( e['folder'], e['identifier'], e['labels_file'] )
+                            a = BuildScoringMatrix( e['folder'], e['identifier'], e['labels_file'], geneset )
                             a.run()
                         
                     if( flagop or option==3): # Training and drug ranking

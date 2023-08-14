@@ -2,7 +2,14 @@ import os
 import json
 import numpy as np
 import pandas as pd
+
 from rnanorm import UQ
+from rnanorm import FPKM
+from rnanorm import TPM
+from rnanorm import TMM
+from rnanorm import CPM
+from rnanorm.annotation import GTF
+
 from gseapy import Biomart
 import gseapy as gp
 
@@ -12,7 +19,7 @@ if(workflow_path[-1]=='/'):
 
 class ProcessPathwayScores:
     
-    def __init__(self, folder, expression_file, identifier):
+    def __init__(self, folder, expression_file, identifier, normalization, gtf, geneset):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -21,6 +28,10 @@ class ProcessPathwayScores:
         self.id = identifier
         
         self.folder = folder
+        
+        self.normalization = normalization
+        self.gtf = gtf
+        self.geneset = geneset
         
         self.folder_out = folder+'/'+identifier
         if( os.path.isdir(self.folder_out) ):
@@ -156,16 +167,53 @@ class ProcessPathwayScores:
         df.index = index
         df.to_csv( f'{fout}/input_rnanorm.csv')
         
-    def normalize_by_fpkm_uq(self):
+    def _check_gene_length(self, genes):
+        gtf_file = f'{workflow_path}/gtf_{self.gtf}.gtf.gz'
+        gtflen = GTF(gtf=gtf_file).length
+        
+        mapp = pd.read_csv( f'{workflow_path}/mapp_ids.tsv', sep='\t')
+        mp={}
+        for i in mapp.index:
+            mp[ mapp.iloc[i, 0] ] = mapp.iloc[i, 1]
+        filt = list( filter( lambda x: x.split('.')[0] in mp.keys(),  gtflen.keys() ))
+        
+        newgl = {}
+        for g in filt:
+            hgnc = mp[ g.split('.')[0] ]
+            if(hgnc in genes):
+                newgl[ hgnc ] = gtflen[g]
+        se = pd.Series(newgl)
+        genesok = list( newgl.keys() )
+        
+        return se, genesok
+        
+    def normalize_counts(self):
         print("\t\tGenerating normalized table in fpkm uq for ssGSEA")
         
         folder = self.folder
         fout = self.folder_out
         ide = self.id
         
-        transformer = UQ()
         df = pd.read_csv( f'{fout}/input_rnanorm.csv', index_col=0)
         df = df.fillna(0)
+        
+        if( self.normalization in ['fpkm_uq', 'cpm', 'tmm'] ):
+            if(self.normalization == 'fpkm_uq'):
+                transformer = UQ()
+            if(self.normalization == 'cpm'):
+                transformer = CPM()
+            if(self.normalization == 'tmm'):
+                transformer = TMM()
+        else:
+            genes = df.columns
+            gene_lengths, genesok = self._check_gene_length( genes )
+            df = df[ genesok ]
+            
+            if(self.normalization == 'tpm'):
+                transformer = TPM( gene_lengths = gene_lengths )
+            elif(self.normalization == 'fpkm'):
+                transformer = FPKM( gene_lengths = gene_lengths.to_numpy() )
+                
         transformer.fit(df)
         index = df.index
         cols = df.columns
@@ -188,7 +236,8 @@ class ProcessPathwayScores:
         fout = self.folder_out
         ide = self.id
         
-        gmt_lib = 'KEGG_2021_HUMAN'
+        gmt_lib = self.geneset
+        
         gmt = gp.parser.download_library(gmt_lib, 'Human')
         genesok = set()
         for k in gmt.keys():
@@ -213,6 +262,6 @@ class ProcessPathwayScores:
     def run(self):
         if(self.flag):
             self.get_gct_rnanorm_files()
-            self.normalize_by_fpkm_uq()
+            self.normalize_counts()
             self.run_ssgsea()
         

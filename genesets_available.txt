@@ -1,0 +1,15 @@
+Elsevier_Pathway_Collection
+KEGG_2013
+KEGG_2015
+KEGG_2016
+KEGG_2019_Human
+KEGG_2019_Mouse
+KEGG_2021_Human
+PFOCR_Pathways
+PFOCR_Pathways_2023
+WikiPathway_2021_Human
+WikiPathways_2013
+WikiPathways_2015
+WikiPathways_2016
+WikiPathways_2019_Human
+WikiPathways_2019_Mouse

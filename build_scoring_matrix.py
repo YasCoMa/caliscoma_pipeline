@@ -15,7 +15,7 @@ if(workflow_path[-1]=='/'):
 
 class BuildScoringMatrix:
     
-    def __init__(self, folder, identifier, label_file):
+    def __init__(self, folder, identifier, label_file, geneset):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -27,6 +27,8 @@ class BuildScoringMatrix:
         self.folder_out = folder+'/'+identifier
         
         self.label_file = label_file
+        
+        self.geneset = geneset
         
         if( not os.path.isfile( f'{self.folder_out}/{identifier}_pathway_scores.tsv' ) ):
             self.flag = False
@@ -135,7 +137,7 @@ class BuildScoringMatrix:
             mp[ drug ][ target ] = row['relation']
             
         dspathways = set( self.hsa['Term'].values ).union( self.dsa['Term'].values )
-        gmt_lib = 'KEGG_2021_HUMAN'
+        gmt_lib = self.geneset
         gmt = gp.parser.download_library(gmt_lib, 'Human')
         
         rel = {}
