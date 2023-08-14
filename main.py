@@ -141,12 +141,14 @@ class Pipeline_drugResponseCalibration:
                         a.run()
                         
                     if( flagop or option==2): # drug-pathway-gene- ScoringMatrix
+                        print('\tStep 2 - Building scoring matrix and training model')
                         flag = self._validate_labels(e)
                         if(flag):
                             a = BuildScoringMatrix( e['folder'], e['identifier'], e['labels_file'], geneset )
                             a.run()
                         
                     if( flagop or option==3): # Training and drug ranking
+                        print('\tStep 3 - Applying drug prioritization')
                         flag = self._validate_labels(e)
                         if(flag):
                             a = DrugRankingAnalysis( e['folder'], e['identifier'], e['labels_file'] )
