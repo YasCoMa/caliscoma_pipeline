@@ -212,7 +212,7 @@ class ProcessPathwayScores:
             if(self.normalization == 'tpm'):
                 transformer = TPM( gene_lengths = gene_lengths )
             elif(self.normalization == 'fpkm'):
-                transformer = FPKM( gene_lengths = gene_lengths.to_numpy() )
+                transformer = FPKM( gene_lengths = gene_lengths )
                 
         transformer.fit(df)
         index = df.index
