@@ -12,6 +12,9 @@
         "folder": "./data_icgc",
         "expression_file": "exp_seq.LICA-FR.tsv.gz",
         "identifier": "licafr",
+        "genome_assembly": "g37",
+        "type_normalization": "fpkm",
+        "pathway_geneset": "WikiPathways_2019_Human",
         "labels_file": "",
         "trained_model": ""
         }
