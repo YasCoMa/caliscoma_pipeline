@@ -2,25 +2,21 @@
 "experiments":
     [
         {
-        "folder": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc",
+        "folder": "./data_icgc",
         "expression_file": "exp_seq.LIRI-JP.tsv.gz",
-        "identifier": "lirijp_fpkmuq",
-        "genome_assembly": "g37",
-        "type_normalization": "fpkm_uq",
+        "identifier": "lirijp",
         "labels_file": "lirijp_sample_labels.tsv",
-        "drug_list_file": "druglist.txt",
-        "optimized_weights_file": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc/lirijp_fpkmuq/best_weights.tsv"
+        "trained_model": ""
         },
         {
-        "folder": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc",
+        "folder": "./data_icgc",
         "expression_file": "exp_seq.LICA-FR.tsv.gz",
         "identifier": "licafr",
         "genome_assembly": "g37",
         "type_normalization": "fpkm",
-        "pathway_geneset": "KEGG_2021_HUMAN",
-        "trained_model": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc/lirijp_fpkmuq/selected_model",
-        "table_means": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc/lirijp_fpkmuq/table_means",
-        "optimized_weights_file": "/mnt/085dd464-7946-4395-acfd-e22026d52e9d/home/yasmmin/Dropbox/portfolio/pipeline_pathwayScore_drugResponse/data_icgc/lirijp_fpkmuq/best_weights.tsv"
+        "pathway_geneset": "WikiPathways_2019_Human",
+        "labels_file": "",
+        "trained_model": ""
         }
     ]
 }
