@@ -15,6 +15,7 @@ sys.path.insert(0, workflow_path)
 from data_processing import ProcessPathwayScores
 from build_scoring_matrix import BuildScoringMatrix
 from drug_ranking_analysis import DrugRankingAnalysis
+from weight_optimization_action import WeightOptimization
 
 class Pipeline_drugResponseCalibration:
     
@@ -73,13 +74,88 @@ class Pipeline_drugResponseCalibration:
                 if( os.path.isfile(folder+'/'+e['labels_file']) ):
                     flag = True
                 else:
-                    print (f'Error - {ide}: Expression file was not found in {folder}')
+                    print (f'Error - {ide}: Labels file was not found in {folder}')
             else:
                 print("Error - Label File field is empty")
         else:
             print("Error - Label File field is missing from configuration")
             
         return flag
+    
+    def _validate_druglist(self, e):
+        flag = False
+        if( 'drug_list_file' in e ):
+            if ( (e['drug_list_file']!='' and e['drug_list_file']!=None) ):
+                folder = e['folder']
+                ide = e["identifier"]
+                if(folder[-1]=='/'):
+                    folder = folder[:-1]
+                if( os.path.isfile(folder+'/'+e['drug_list_file']) ):
+                    flag = True
+                else:
+                    print (f'Error - {ide}: Drug list file was not found in {folder}')
+            else:
+                print("Error - Drug list File field is empty")
+        else:
+            print("Error - Drug list File field is missing from configuration")
+            
+        return flag
+    
+    def _validate_model(self, e):
+        flag = False
+        if( 'trained_model' in e ):
+            if ( (e['trained_model']!='' and e['trained_model']!=None) ):
+                folder = e['folder']
+                ide = e["identifier"]
+                if(folder[-1]=='/'):
+                    folder = folder[:-1]
+                if( os.path.isfile( e['trained_model'] ) ):
+                    flag = True
+                else:
+                    print (f'Error - {ide}: Trained model file was not found')
+            else:
+                print("Error - Trained model field is empty")
+        else:
+            print("Error - Trained model field is missing from configuration")
+            
+        return flag
+    
+    def _validate_table_means(self, e):
+        flag = False
+        if( 'table_means' in e ):
+            if ( (e['table_means']!='' and e['table_means']!=None) ):
+                folder = e['folder']
+                ide = e["identifier"]
+                if(folder[-1]=='/'):
+                    folder = folder[:-1]
+                if( os.path.isfile( e['table_means'] ) ):
+                    flag = True
+                else:
+                    print (f'Error - {ide}: Table means file was not found')
+            else:
+                print("Error - Table means field is empty")
+        else:
+            print("Error - Table means field is missing from configuration")
+            
+        return flag
+    
+    def _validate_weights(self, e):
+        weights = [20, 5, 10]
+        if( 'optimized_weights_file' in e ):
+            if ( (e['optimized_weights_file']!='' and e['optimized_weights_file']!=None) ):
+                folder = e['folder']
+                ide = e["identifier"]
+                if(folder[-1]=='/'):
+                    folder = folder[:-1]
+                if( os.path.isfile( e['optimized_weights_file'] ) ):
+                    df = pd.read_csv(e['optimized_weights_file'], sep='\t' )
+                    weights = list(df['value'].values)
+                else:
+                    print (f'Information - {ide}: Optimized weights file was not found - switching to default weights')
+            else:
+                print("Information - Optimized weights file is present but it is empty - switching to default weights")
+            
+        return weights
     
     def _check_norm(self, e):
         norm = 'fpkm_uq'
@@ -140,18 +216,52 @@ class Pipeline_drugResponseCalibration:
                         a = ProcessPathwayScores( e['folder'], e['expression_file'], e['identifier'], normalization, gtf, geneset )
                         a.run()
                         
-                    if( flagop or option==2): # drug-pathway-gene- ScoringMatrix
-                        print('\tStep 2 - Building scoring matrix and training model')
-                        flag = self._validate_labels(e)
-                        if(flag):
-                            a = BuildScoringMatrix( e['folder'], e['identifier'], e['labels_file'], geneset )
+                    if( flagop or option==2): # Optimizing weights
+                        print('\tStep 2 - Optimizing scoring weights')
+                        flag_label = self._validate_labels(e)
+                        flag_druglist = self._validate_druglist(e)
+                        if( flag_label and flag_druglist ):
+                            a = WeightOptimization( e['folder'], e['identifier'], e['labels_file'], e['drug_list_file'] )
                             a.run()
                         
-                    if( flagop or option==3): # Training and drug ranking
-                        print('\tStep 3 - Applying drug prioritization')
-                        flag = self._validate_labels(e)
-                        if(flag):
-                            a = DrugRankingAnalysis( e['folder'], e['identifier'], e['labels_file'] )
+                    if( flagop or option==3): # drug-pathway-gene- ScoringMatrix
+                        print('\tStep 3 - Building scoring matrix and training model')
+                        flag_label = self._validate_labels(e)
+                        flag_model = self._validate_model(e)
+                        flag_tm = self._validate_table_means(e)
+                        if( flag_label or (flag_model and flag_tm) ):
+                            labels = None
+                            if(flag_label):
+                                labels = e['labels_file']
+                                
+                            model = None
+                            if(flag_model):
+                                model = e['trained_model']
+                            tmeans = None
+                            if(flag_tm):
+                                tmeans = e['table_means']
+                            
+                            weights = self._validate_weights(e)
+                            a = BuildScoringMatrix( e['folder'], e['identifier'], labels, geneset, model, tmeans )
+                            a.run(weights)
+                        
+                    if( flagop or option==4): # Training and drug ranking
+                        print('\tStep 4 - Applying drug prioritization')
+                        flag_label = self._validate_labels(e)
+                        flag_model = self._validate_model(e)
+                        flag_tm = self._validate_table_means(e)
+                        if( flag_label or (flag_model and flag_tm) ):
+                            labels = None
+                            if(flag_label):
+                                labels = e['labels_file']
+                                
+                            model = None
+                            if(flag_model):
+                                model = e['trained_model']
+                            tmeans = None
+                            if(flag_tm):
+                                tmeans = e['table_means']
+                            a = DrugRankingAnalysis( e['folder'], e['identifier'], labels, model )
                             a.run()
                 
             else:

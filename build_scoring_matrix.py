@@ -15,7 +15,7 @@ if(workflow_path[-1]=='/'):
 
 class BuildScoringMatrix:
     
-    def __init__(self, folder, identifier, label_file, geneset):
+    def __init__(self, folder, identifier, label_file, geneset, model, tmeans):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -27,6 +27,9 @@ class BuildScoringMatrix:
         self.folder_out = folder+'/'+identifier
         
         self.label_file = label_file
+        
+        self.model = model
+        slef.tmeans = tmeans
         
         self.geneset = geneset
         
@@ -77,9 +80,9 @@ class BuildScoringMatrix:
             dff['healthy_mean'] = hmean['ES']
             dff['disease_mean'] = dmean['ES']
             dff.to_csv( f'{fout}/table_means.tsv', sep='\t' )
+            self.tmeans = f'{fout}/table_means.tsv'
             
         return X, y
-        
         
     def train_model(self):
         print("\t\tTraining model")
@@ -123,6 +126,7 @@ class BuildScoringMatrix:
         trdf.to_csv( f'{fout}/training_evaluation_results.tsv', sep='\t', index=None )
         
         joblib.dump( models[mai], f'{fout}/selected_model')
+        self.model =  f'{fout}/selected_model'
                      
     def _get_combined_drug_pathway_score(self):
         fout = self.folder_out
@@ -145,7 +149,7 @@ class BuildScoringMatrix:
         total = len(mp.keys())
         i=1
         for d in mp:
-            print(i, '/', total)
+            #print(i, '/', total)
             rel[d] = {}
             valid = []
             for p in dspathways:
@@ -174,7 +178,7 @@ class BuildScoringMatrix:
         
         rel_drug_path = self._get_combined_drug_pathway_score()
         
-        dfmean = pd.read_csv( f'{fout}/table_means.tsv', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
         gb = self.dsa.groupby(['Name', 'Term'])
         samples = self.dsa['Name'].unique()
         
@@ -215,10 +219,11 @@ class BuildScoringMatrix:
                     
         f.close()
     
-    def run(self):
+    def run(self, weights):
         if(self.flag):
-            self.train_model()
-            self.compute_scoring_matrix(20, 5, 10)
+            if( self.label_file!=None ):
+                self.train_model()
+            self.compute_scoring_matrix( weights[0], weights[1], weights[2])
             
                     
         

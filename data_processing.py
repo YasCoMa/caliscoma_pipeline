@@ -188,7 +188,7 @@ class ProcessPathwayScores:
         return se, genesok
         
     def normalize_counts(self):
-        print("\t\tGenerating normalized table in fpkm uq for ssGSEA")
+        print("\t\tGenerating normalized table for ssGSEA")
         
         folder = self.folder
         fout = self.folder_out

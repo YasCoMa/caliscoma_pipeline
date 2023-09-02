@@ -12,7 +12,7 @@ if(workflow_path[-1]=='/'):
 
 class DrugRankingAnalysis:
     
-    def __init__(self, folder, identifier, label_file):
+    def __init__(self, folder, identifier, label_file, model, tmeans):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -25,16 +25,20 @@ class DrugRankingAnalysis:
         
         self.label_file = label_file
         
-        lbfile = f'{folder}/{self.label_file}'
-        lb = pd.read_csv(lbfile, sep='\t')
+        self.model = model
+        slef.tmeans = tmeans
         
         if( not os.path.isfile( f'{self.folder_out}/modified_disease_score_by_drug.tsv' ) ):
             self.flag = False
             print (f'Error - {identifier}: The modified pathway score file for disease samples was not found. You have to run the previous step of the pipeline.')
         else:
             df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
-            disease = lb[ lb['label']==1 ]['sample'].unique()
-            df = df[ df['Name'].isin(disease) ][ ['Name', 'Term', 'ES'] ]
+            if( lbfile!=None ):
+                lbfile = f'{folder}/{self.label_file}'
+                lb = pd.read_csv(lbfile, sep='\t')
+                disease = lb[ lb['label']==1 ]['sample'].unique()
+                df = df[ df['Name'].isin(disease) ]
+            df = df[ ['Name', 'Term', 'ES'] ]
             self.grouped_original_scores = df.groupby('Name')
             dsa=None
             df=None
@@ -60,7 +64,7 @@ class DrugRankingAnalysis:
         drugs = set( df['drug'].unique() )
         samples = set( df['sample'].unique() )
             
-        trained_model = joblib.load( f'{fout}/selected_model')
+        trained_model = joblib.load( f'{self.model}')
         
         prlist = {}
         for sample in samples:
