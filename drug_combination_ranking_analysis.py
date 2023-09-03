@@ -143,6 +143,7 @@ class DrugCombinationAnalysis:
     
     def _load_drug_combinations(drug_comb_list):
         drugs = open( drug_comb_list, 'r' ).read().split('\n')
+        drugs = list( map(lambda x: x.replace(' ',''), drugs ) )
         return drugs
         
     def evaluate_rank_drug_combination(self, drug_comb_list, w1, w2, w3):

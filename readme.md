@@ -14,19 +14,19 @@ This pipeline contains the following functions:
 ## Input configuration file:
 * The pipeline only needs a configuration file and the step number you want to run.
 - Configuration file keys (see also the example in config.json):
-    - **folder**: working directory
-    - **expression_file**: compressed gene expression file for the desired icgc project, it must be separated by tabulation. The following columns are mandatory: submitted_file_id (sample names), raw_read_count (the read counts without normalization) and gene_id (genes in ensembl or hgnc symbol)
+    - **identifier**: project identifier to be used in the result files
     - **type_normalization**: normalization type (possible values: tpm, fpkm, tmm, cpm or fpkm_uq)
     - **genome_assembly**: the supported assemblies are the 37 and 38 (values may be: g37 or g38)
     - **pathway_geneset**: pathway-based gene sets, choose one identifier from the list in [genesets_available.txt](https://github.com/YasCoMa/caliscoma_pipeline/blob/master/genesets_available.txt)
-    - **identifier**: project identifier to be used in the result files
-    - **labels_file** (optional for part 1): file with two columns, one named 'sample' corresponding to the unique values of submitted_sample_id; the second named 'label' corresponding to a disease (or confirmed tumour) (1) or a healthy (0) case
-    - **trained_model** (optional for part 1): file with the trained model to separate healthy and disease cases
-    - **means_table_file** (optional for part 1): file with the means table calculated when the model is trained by the function 3.
-    - **samples_pathway_scores** (optional for part 1): file with the original model calculated pathway scores by function 1, in order to check the number of features expected by the original model
+    - **folder**: working directory
+    - **expression_file**: compressed gene expression file for the desired icgc project, it must be separated by tabulation. The following columns are mandatory: submitted_file_id (sample names), raw_read_count (the read counts without normalization) and gene_id (genes in ensembl or hgnc symbol). File expected to be in {folder}.
+    - **labels_file** (optional for function 1): file with two columns, one named 'sample' corresponding to the unique values of submitted_sample_id; the second named 'label' corresponding to a disease (or confirmed tumour) (1) or a healthy (0) case. File expected to be in {folder}.
+    - **trained_model** (optional for function 1): file with the trained model to separate healthy and disease cases. Full path is expected.
+    - **means_table_file** (optional for function 1): file with the means table calculated when the model is trained by the function 3. Full path is expected.
+    - **samples_pathway_scores** (optional for function 1): file with the original model calculated pathway scores by function 1, in order to check the number of features expected by the original model. Full path is expected.
     - **optimized_weights_file**: tab separated table file with two columns representing the weights (w1, w2, w3) and their respective values.
-    - **drug_list_file** (only mandatory for function 2): file with the gold standard drug list (one drugbank id per line)
-    - **drug_combination_file** (only mandatory for function 5): file with the drug combination candidates list (drugbank ids concatenated with comma in each line)
+    - **drug_list_file** (only mandatory for function 2): file with the gold standard drug list (one drugbank id per line), this file is expected to be in the in the experiment item folder results ({folder}/{identifier})
+    - **drug_combination_file** (only mandatory for function 5): file with the drug combination candidates list (drugbank ids concatenated with comma in each line). Full path is expected.
 
 - Observation:    
     * The "labels_file" parameter is mandatory for the weights optimization, scoring matrix calculation, model traning and drug (or drug combination) ranking 

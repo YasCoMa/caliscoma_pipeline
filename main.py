@@ -110,10 +110,6 @@ class Pipeline_drugResponseCalibration:
         n_features_model = -1
         if( 'samples_pathway_scores' in e ):
             if ( (e['samples_pathway_scores']!='' and e['samples_pathway_scores']!=None) ):
-                folder = e['folder']
-                ide = e["identifier"]
-                if(folder[-1]=='/'):
-                    folder = folder[:-1]
                 if( os.path.isfile( e['samples_pathway_scores'] ) ):
                     df = pd.read_csv(e['samples_pathway_scores'], sep='\t' )
                     df = df[ ['Name', 'Term', 'ES'] ]
