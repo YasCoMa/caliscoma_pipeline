@@ -6,7 +6,7 @@ Python3 pipeline inspired in the [simdrugs](https://github.com/sepehrgolriz/simd
 
 This pipeline contains the following functions: 
 (1) Data processing to handle the tansformations needed to obtain the original pathway scores of the samples according to single sample analysis GSEA
-(2) Scoring matrix weights optimization according to a gold standard list of drugs (those that went on clinical trials or are approved for the disease)
+(2) Scoring matrix weights optimization according to a gold standard list of drugs (those that went on clinical trials or are approved for the disease).It tests the weights in a range of 0 to 30 (you may change as you want). The evaluation function tests and try to maximize the number of approved drugs whose modified pathway scores for disease samples is changed from disease to healthy sample classification, according to the trained model.
 (3) Model training based on the disease and healthy sample pathway scores, to classify them; and computation of the calibrated disease samples pathwa scores according to the interaction among drug and targets found in these pathways
 (4) Drug ranking based on the disease samples whose calibrated matrix were responsible to change the trained model decision from disease to healthy state.
 (5) Drug combination ranking evaluated the same way as in option (4) but adding the effects of multiple drugs in each sample while calculating the calibrated scoring matrix
@@ -55,11 +55,6 @@ This pipeline contains the following functions:
 - Run only model training & modified pathway score matrix: ````python3 main.py -rt 3 -cf config.json````
 - Run only drug ranking: ````python3 main.py -rt 4 -cf config.json````
 - Run only drug combination evaluation: ````python3 main.py -rt 5 -cf config_new_options.json````
-
-### Optimizing the w1, w2 and w3 weights for scoring matrix
-- After running all steps for the liri-jp, you may execute the optimization: ````python3 optimization_scoring_weights.py````
-- This optimization example is based on the approved drugs mapped to drugbank ids for liver cancer. It tests the weights in a range of 0 to 30 (you may change as you want). The evaluation function tests and try to maximize the number of approved drugs whose modified pathway scores for disease samples is changed from disease to healthy sample classification, according to the trained model.
-- Use the three weights returned changing the call to the compute_scoring_matrix function in the run method located in the buil_scoring_matrix.py file.
 
 ## Reference
 
