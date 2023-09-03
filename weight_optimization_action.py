@@ -19,7 +19,7 @@ class WeightOptimization:
         
         self.label_file = label_file
         
-        self.drugs = open( f'{folder}/{drug_list_file}', "r").read().split("\n")
+        self.drugs = open( f'{self.folder_out}/{drug_list_file}', "r").read().split("\n")
         
         lbfile = f'{folder}/{self.label_file}'
         lb = pd.read_csv(lbfile, sep='\t')

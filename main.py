@@ -75,7 +75,7 @@ class Pipeline_drugResponseCalibration:
                 ide = e["identifier"]
                 if(folder[-1]=='/'):
                     folder = folder[:-1]
-                    folderOut = folder+'/'+ide
+                folderOut = folder+'/'+ide
                     
                 if( os.path.isfile(folder+'/'+e[field]) or os.path.isfile(folderOut+'/'+e[field]) or os.path.isfile(e[field]) ):
                     flag = True
