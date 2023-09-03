@@ -29,7 +29,7 @@ class BuildScoringMatrix:
         self.label_file = label_file
         
         self.model = model
-        slef.tmeans = tmeans
+        self.tmeans = tmeans
         
         self.geneset = geneset
         
@@ -223,7 +223,7 @@ class BuildScoringMatrix:
         if(self.flag):
             if( self.label_file!=None ):
                 self.train_model()
-            self.compute_scoring_matrix( weights[0], weights[1], weights[2])
+            self.compute_scoring_matrix( weights[0], weights[1], weights[2] )
             
                     
         

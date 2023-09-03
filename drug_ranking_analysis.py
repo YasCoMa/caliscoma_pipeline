@@ -12,7 +12,7 @@ if(workflow_path[-1]=='/'):
 
 class DrugRankingAnalysis:
     
-    def __init__(self, folder, identifier, label_file, model, tmeans):
+    def __init__(self, folder, identifier, label_file, model, tmeans, n_features_model):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -26,7 +26,8 @@ class DrugRankingAnalysis:
         self.label_file = label_file
         
         self.model = model
-        slef.tmeans = tmeans
+        self.tmeans = tmeans
+        self.n_features_model = n_features_model
         
         if( not os.path.isfile( f'{self.folder_out}/modified_disease_score_by_drug.tsv' ) ):
             self.flag = False
@@ -80,7 +81,15 @@ class DrugRankingAnalysis:
                 scores = gb.get_group( (drug, sample) )['mes'].values 
                 for p,s in zip(paths, scores):
                     row[ p ] = s
-                xtest.append( list( row.values() ) )
+                    
+                temp = list( row.values() ) 
+                if( len(temp) > self.n_features_model):
+                    temp = temp[:self.n_features_model]
+                if( len(temp) < self.n_features_model):
+                    while len(temp) < self.n_features_model:
+                        temp.append(0)
+                        
+                xtest.append( temp )
             
             predictions = trained_model.predict( xtest )
             changed = 0
