@@ -27,7 +27,8 @@ This pipeline contains the following functions:
     - **optimized_weights_file**: tab separated table file with two columns representing the weights (w1, w2, w3) and their respective values.
     - **drug_list_file** (only mandatory for function 2): file with the gold standard drug list (one drugbank id per line)
     - **drug_combination_file** (only mandatory for function 5): file with the drug combination candidates list (drugbank ids concatenated with comma in each line)
-    
+
+- Observation:    
     * The "labels_file" parameter is mandatory for the weights optimization, scoring matrix calculation, model traning and drug (or drug combination) ranking 
     * In case of transfer learning, "labels_file" may be ignored only if both "trained_model", "means_table_file" and samples_pathway_scores" are present. This is only possible for functions 3, 4 and 5. For weights optimization, only labels file is accepted.
     * If type_normalization and/or genome_assembly are missing or empty, it will switch to the default fpkm_uq
