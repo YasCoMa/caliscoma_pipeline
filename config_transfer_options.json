@@ -1,0 +1,29 @@
+{ 
+"experiments":
+    [
+        {
+        "folder": "./data_icgc",
+        "expression_file": "exp_seq.LIRI-JP.tsv.gz",
+        "identifier": "lirijp_fpkmuq",
+        "genome_assembly": "g37",
+        "type_normalization": "fpkm_uq",
+        "labels_file": "lirijp_sample_labels.tsv",
+        "drug_list_file": "druglist.txt",
+        "optimized_weights_file": "./data_icgc/lirijp_fpkmuq/best_weights.tsv",
+        "drug_combination_file": "./test_drug_combination/livCancer_drugComb_list.txt"
+        },
+        {
+        "folder": "./data_icgc",
+        "expression_file": "exp_seq.LICA-FR.tsv.gz",
+        "identifier": "licafr_uq_kegg",
+        "genome_assembly": "g37",
+        "type_normalization": "fpkm_uq",
+        "pathway_geneset": "KEGG_2021_HUMAN",
+        "trained_model": "./data_icgc/lirijp_fpkmuq/selected_model",
+        "means_table_file": "./data_icgc/lirijp_fpkmuq/table_means.tsv",
+        "samples_pathway_scores": "./data_icgc/lirijp_fpkmuq/lirijp_fpkmuq_pathway_scores.tsv",
+        "optimized_weights_file": "./data_icgc/lirijp_fpkmuq/best_weights.tsv",
+        "drug_combination_file": "./test_drug_combination/livCancer_drugComb_list.txt"
+        }
+    ]
+}

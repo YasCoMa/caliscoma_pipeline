@@ -50,11 +50,21 @@ This pipeline contains the following functions:
 
 ### Run analysis
 - Run all steps: ````python3 main.py -rt 0 -cf config.json````
+- Run all steps: ````python3 main.py -rt 0 -cf config_transfer_options.json````
+
 - Run only data processing: ````python3 main.py -rt 1 -cf config.json````
+- Run only data processing: ````python3 main.py -rt 1 -cf config_transfer_options.json````
+
 - Run only model training & modified pathway score matrix: ````python3 main.py -rt 2 -cf config.json````
-- Run only weights optimization: ````python3 main.py -rt 3 -cf config_new_options.json````
+- Run only model training & modified pathway score matrix: ````python3 main.py -rt 2 -cf config_transfer_options.json````
+
+- Run only weights optimization: ````python3 main.py -rt 3 -cf config.json````
+
 - Run only drug ranking: ````python3 main.py -rt 4 -cf config.json````
-- Run only drug combination evaluation: ````python3 main.py -rt 5 -cf config_new_options.json````
+- Run only drug ranking: ````python3 main.py -rt 4 -cf config_transfer_options.json````
+
+- Run only drug combination evaluation: ````python3 main.py -rt 5 -cf config.json````
+- Run only drug combination evaluation: ````python3 main.py -rt 5 -cf config_transfer_options.json````
 
 ## Reference
 
