@@ -3,6 +3,7 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import gseapy as gp
 from tqdm import tqdm
 
 workflow_path = os.environ.get('path_workflow')
@@ -41,7 +42,7 @@ class DrugCombinationAnalysis:
             print (f'Error - {identifier}: The modified pathway score file for disease samples was not found. You have to run the previous step of the pipeline.')
         else:
             df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
-            if( lbfile!=None ):
+            if( label_file!=None ):
                 lbfile = f'{folder}/{self.label_file}'
                 lb = pd.read_csv(lbfile, sep='\t')
                 disease = lb[ lb['label']==1 ]['sample'].unique()
@@ -52,6 +53,25 @@ class DrugCombinationAnalysis:
             self.grouped_original_scores = df.groupby('Name')
             dsa=None
             df=None
+    
+    def _get_pathway_transfer_mapping(self):
+        gmt_lib = self.geneset
+        gmt = gp.parser.download_library(gmt_lib, 'Human')
+        
+        mp = {}
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )
+        original_paths = set( dfmean.index )
+        for ptarget in self.dspathways:
+            gt = 0
+            chosen = ptarget
+            if( not ptarget in original_paths ):
+                for pmodel in original_paths:
+                    interlen = len( set( gmt[ptarget] ).intersection(set( gmt[pmodel] )) )
+                    if( interlen > gt ):
+                        gt = interlen
+                        chosen = pmodel
+            mp[ptarget] = chosen
+        self.mapping_transfer = mp
                      
     def _load_drug_pathway_score(self):
         fout = self.folder_out
@@ -104,10 +124,11 @@ class DrugCombinationAnalysis:
                     signal = -1
                 elif( drug_pathway_score == 0 ):
                     signal = 0
-                return signal
+        return signal
     
     def _get_tmeans_factor(self, pathway):
         factor = 1
+        pathway = self.mapping_transfer[pathway]
         if( pathway in self.dfmean.index ):
             diff_mean_pathway = self.dfmean.loc[pathway, 'abs_diff_mean']
             q2 = np.quantile( self.dfmean['abs_diff_mean'], 0.5 )
@@ -141,8 +162,9 @@ class DrugCombinationAnalysis:
                 row[pathway] *= signal*weight
         return row
     
-    def _load_drug_combinations(drug_comb_list):
+    def _load_drug_combinations(self, drug_comb_list):
         drugs = open( drug_comb_list, 'r' ).read().split('\n')
+        drugs = list( filter( lambda x: x!='', drugs ) )
         drugs = list( map(lambda x: x.replace(' ',''), drugs ) )
         return drugs
         
@@ -150,6 +172,7 @@ class DrugCombinationAnalysis:
         self.weights = [w1, w2, w3]
         self._load_table_means()
         self._load_drug_pathway_score()
+        self._get_pathway_transfer_mapping()
         
         ide = self.id
         fout = self.folder_out
@@ -171,11 +194,12 @@ class DrugCombinationAnalysis:
                 row = self.modify_score(sample, items)
                     
                 temp = list( row.values() ) 
-                if( len(temp) > self.n_features_model):
-                    temp = temp[:self.n_features_model]
-                if( len(temp) < self.n_features_model):
-                    while len(temp) < self.n_features_model:
-                        temp.append(0)
+                if( self.label_file == None ):
+                    if( len(temp) > self.n_features_model):
+                        temp = temp[:self.n_features_model]
+                    if( len(temp) < self.n_features_model):
+                        while len(temp) < self.n_features_model:
+                            temp.append(0)
                         
                 xtest.append( temp )
             
@@ -210,4 +234,4 @@ class DrugCombinationAnalysis:
     
     def run(self, drug_comb_list, weights):
         if(self.flag):
-            self.evaluate_rank_drug( drug_comb_list, weights[0], weights[1], weights[2] )
+            self.evaluate_rank_drug_combination( drug_comb_list, weights[0], weights[1], weights[2] )

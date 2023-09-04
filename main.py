@@ -2,6 +2,7 @@
 import os
 import json
 import sys
+import pandas as pd
 
 workflow_path = os.environ.get('path_workflow')
 if(workflow_path==None):
@@ -65,6 +66,8 @@ class Pipeline_drugResponseCalibration:
         return flag
     
     def _validate_file(self, e, field, displayName=None):
+        ide = e['identifier']
+        
         flag = False
         if(displayName==None):
             displayName = field.replace('_', ' ').capitalize()
@@ -82,9 +85,9 @@ class Pipeline_drugResponseCalibration:
                 else:
                     print (f'Error {ide} - {displayName} was not found')
             else:
-                print("Error {ide} - {displayName} field is empty")
+                print( f"Error {ide} - {displayName} field is empty")
         else:
-            print("Error {ide} - {displayName} field is missing from configuration")
+            print( f"Error {ide} - {displayName} field is missing from configuration")
             
         return flag
     
@@ -148,11 +151,12 @@ class Pipeline_drugResponseCalibration:
     def _check_geneset(self, e):
         path = 'KEGG_2021_HUMAN'
         pok = open( f'{workflow_path}/genesets_available.txt','r').read().split('\n')
+        pok = list( map( lambda x: x.lower(), pok ) )
         
         flag = False
         if( ('pathway_geneset' in e) ):
             if ( (e['pathway_geneset']!='' and e['pathway_geneset']!=None) ):
-                if( (e['pathway_geneset'] in pok) ):
+                if( (e['pathway_geneset'].lower() in pok) ):
                     path = e['pathway_geneset']
                 else:
                     print("Information - pathway_geneset is not among available options in genesets_available.txt, reverting to KEGG_2021_HUMAN")    
@@ -165,7 +169,7 @@ class Pipeline_drugResponseCalibration:
     
     def run(self, option, config):
         if( self._validate_input(config) ):
-            if( option in range(4) ):
+            if( option in range(6) ):
                 with open(config, 'r') as g:
                     cfg = json.load(g)
                 
@@ -179,22 +183,18 @@ class Pipeline_drugResponseCalibration:
                     flagop = ( option==0 ) 
                     if( flagop or option==1):
                         print('\tStep 1 - Running data processing')
+                        
                         a = ProcessPathwayScores( e['folder'], e['expression_file'], e['identifier'], normalization, gtf, geneset )
                         a.run()
                         
-                    if( flagop or option==2): # Optimizing weights
-                        print('\tStep 2 - Optimizing scoring weights')
-                        flag_label = self._validate_file(e, 'labels_file')
-                        flag_druglist = self._validate_file(e, 'drug_list_file')
-                        if( flag_label and flag_druglist ):
-                            a = WeightOptimization( e['folder'], e['identifier'], e['labels_file'], e['drug_list_file'] )
-                            a.run()
+                    if( flagop or option==2): # drug-pathway-gene- ScoringMatrix
+                        print('\tStep 2 - Building samples pathway scoring matrix and training model')
                         
-                    if( flagop or option==3): # drug-pathway-gene- ScoringMatrix
-                        print('\tStep 3 - Building scoring matrix and training model')
                         flag_label = self._validate_file(e, 'labels_file')
-                        flag_model = self._validate_file(e, 'trained_model')
-                        flag_tm = self._validate_file(e, 'means_table_file')
+                        if( not flag_label ):
+                            flag_model = self._validate_file(e, 'trained_model')
+                            flag_tm = self._validate_file(e, 'means_table_file')
+                        
                         if( flag_label or (flag_model and flag_tm ) ):
                             labels = None
                             model = None
@@ -206,18 +206,32 @@ class Pipeline_drugResponseCalibration:
                                 if(flag_model):
                                     model = e['trained_model']
                                 if(flag_tm):
-                                    tmeans = e['table_means']
+                                    tmeans = e['means_table_file']
                             
                             weights = self._validate_weights(e)
                             a = BuildScoringMatrix( e['folder'], e['identifier'], labels, geneset, model, tmeans )
                             a.run(weights)
                         
+                    if( flagop or option==3): # Optimizing weights
+                        print('\tStep 3 - Optimizing scoring weights')
+                        
+                        flag_label = self._validate_file(e, 'labels_file')
+                        flag_druglist = self._validate_file(e, 'drug_list_file')
+                        
+                        if( flag_label and flag_druglist ):
+                            a = WeightOptimization( e['folder'], e['identifier'], e['labels_file'], e['drug_list_file'] )
+                            a.run()
+                        
                     if( flagop or option==4): # Drug ranking individual evaluation
                         print('\tStep 4 - Applying drug prioritization')
+                        
                         flag_label = self._validate_file(e, 'labels_file')
-                        flag_model = self._validate_file(e, 'trained_model')
-                        flag_tm = self._validate_file(e, 'means_table_file')
-                        nf = self.n_features_model(e)
+                        nf = 0
+                        if( not flag_label ):
+                            flag_model = self._validate_file(e, 'trained_model')
+                            flag_tm = self._validate_file(e, 'means_table_file')
+                            nf = self._features_model_origin(e)
+                            
                         if( flag_label or (flag_model and flag_tm and nf>-1) ):
                             labels = None
                             if(flag_label):
@@ -228,17 +242,21 @@ class Pipeline_drugResponseCalibration:
                                 model = e['trained_model']
                             tmeans = None
                             if(flag_tm):
-                                tmeans = e['table_means']
-                            a = DrugRankingAnalysis( e['folder'], e['identifier'], labels, model, nf )
+                                tmeans = e['means_table_file']
+                            a = DrugRankingAnalysis( e['folder'], e['identifier'], labels, model, tmeans, nf )
                             a.run()
                         
                     if( flagop or option==5): # Drug combination ranking and evaluation
-                        print('\tStep 4 - Applying drug combination prioritization')
+                        print('\tStep 5 - Applying drug combination prioritization')
+                        
                         flag_label = self._validate_file(e, 'labels_file')
-                        flag_model = self._validate_file(e, 'trained_model')
-                        flag_tm = self._validate_file(e, 'means_table_file')
+                        nf = 0
+                        if( not flag_label ):
+                            flag_model = self._validate_file(e, 'trained_model')
+                            flag_tm = self._validate_file(e, 'means_table_file')
+                            nf = self._features_model_origin(e)
                         flag_drug_comb = self._validate_file(e, 'drug_combination_file')
-                        nf = self.n_features_model(e)
+                        
                         if( flag_drug_comb and ( flag_label or (flag_model and flag_tm and nf>-1) ) ):
                             labels = None
                             if(flag_label):
@@ -249,11 +267,11 @@ class Pipeline_drugResponseCalibration:
                                 model = e['trained_model']
                             tmeans = None
                             if(flag_tm):
-                                tmeans = e['table_means']
+                                tmeans = e['means_table_file']
                             
                             weights = self._validate_weights(e)
                             a = DrugCombinationAnalysis( e['folder'], e['identifier'], labels, model, tmeans, nf, geneset )
-                            a.run(weights)
+                            a.run( e['drug_combination_file'], weights)
                 
             else:
                 print('Error - Invalid option')

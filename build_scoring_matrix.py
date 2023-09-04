@@ -36,6 +36,30 @@ class BuildScoringMatrix:
         if( not os.path.isfile( f'{self.folder_out}/{identifier}_pathway_scores.tsv' ) ):
             self.flag = False
             print (f'Error - {identifier}: Pathway score file was not found. You have to run the previous step of the pipeline.')
+        else:
+            df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
+            self.dsa = df[ ['Name', 'Term', 'ES'] ]
+            self.samples = set( self.dsa['Name'].unique() )
+            self.dspathways = set( self.dsa['Term'].unique() )
+    
+    def _get_pathway_transfer_mapping(self):
+        gmt_lib = self.geneset
+        gmt = gp.parser.download_library(gmt_lib, 'Human')
+        
+        mp = {}
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )
+        original_paths = set( dfmean.index )
+        for ptarget in self.dspathways:
+            gt = 0
+            chosen = ptarget
+            if( not ptarget in original_paths ):
+                for pmodel in original_paths:
+                    interlen = len( set( gmt[ptarget] ).intersection(set( gmt[pmodel] )) )
+                    if( interlen > gt ):
+                        gt = interlen
+                        chosen = pmodel
+            mp[ptarget] = chosen
+        self.mapping_transfer = mp
             
     def _prepare_dataset_xy(self):
         X = []
@@ -80,7 +104,8 @@ class BuildScoringMatrix:
             dff['healthy_mean'] = hmean['ES']
             dff['disease_mean'] = dmean['ES']
             dff.to_csv( f'{fout}/table_means.tsv', sep='\t' )
-            self.tmeans = f'{fout}/table_means.tsv'
+            
+        self.tmeans = f'{fout}/table_means.tsv'
             
         return X, y
         
@@ -140,7 +165,6 @@ class BuildScoringMatrix:
                 mp[ drug ] = {}
             mp[ drug ][ target ] = row['relation']
             
-        dspathways = set( self.hsa['Term'].values ).union( self.dsa['Term'].values )
         gmt_lib = self.geneset
         gmt = gp.parser.download_library(gmt_lib, 'Human')
         
@@ -152,7 +176,7 @@ class BuildScoringMatrix:
             #print(i, '/', total)
             rel[d] = {}
             valid = []
-            for p in dspathways:
+            for p in self.dspathways:
                 targets = mp[d].keys()
                 found_pathway_targets = list( set( targets ).intersection( gmt[p] ) )
                 
@@ -177,6 +201,7 @@ class BuildScoringMatrix:
         fout = self.folder_out
         
         rel_drug_path = self._get_combined_drug_pathway_score()
+        self._get_pathway_transfer_mapping()
         
         dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
         gb = self.dsa.groupby(['Name', 'Term'])
@@ -194,8 +219,8 @@ class BuildScoringMatrix:
                     signal = -1
                 elif( drug_pathway_score == 0 ):
                     signal = 0
-                    
-                diff_mean_pathway = dfmean.loc[pathway, 'abs_diff_mean']
+                
+                diff_mean_pathway = dfmean.loc[ self.mapping_transfer[pathway], 'abs_diff_mean']
                 
                 for sample in samples:
                     sample_original_score = gb.get_group( (sample, pathway) )['ES'].values[0]
@@ -205,15 +230,16 @@ class BuildScoringMatrix:
                     if( drug_pathway_score != 0 ):
                         modified_score *= signal
                         
-                        q2 = np.quantile( dfmean['abs_diff_mean'], 0.5 )
-                        q3 = np.quantile( dfmean['abs_diff_mean'], 0.75 )
-                        
-                        if( diff_mean_pathway > q3 ):
-                            modified_score *= w1
-                        elif( diff_mean_pathway >= q2 ):
-                            modified_score *= w2
-                        else:
-                            modified_score *= w3
+                        if( diff_mean_pathway > 0):
+                            q2 = np.quantile( dfmean['abs_diff_mean'], 0.5 )
+                            q3 = np.quantile( dfmean['abs_diff_mean'], 0.75 )
+                            
+                            if( diff_mean_pathway > q3 ):
+                                modified_score *= w1
+                            elif( diff_mean_pathway >= q2 ):
+                                modified_score *= w2
+                            else:
+                                modified_score *= w3
                             
                     f.write( "%s\t%s\t%s\t%.6f\n" %(drug, pathway, sample, modified_score) )
                     

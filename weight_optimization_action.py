@@ -1,3 +1,4 @@
+import os
 import optuna
 import joblib
 import numpy as np
@@ -23,12 +24,8 @@ class WeightOptimization:
         
         lbfile = f'{folder}/{self.label_file}'
         lb = pd.read_csv(lbfile, sep='\t')
-        
-        disease = lb[ lb['label']==1 ]['sample'].unique()
-        dsa = df[ df['Name'].isin(disease) ][ ['Name', 'Term', 'ES'] ]
-        self.grouped_original_scores = df.groupby('Name')
 
-    def _fill_original_score(sample):
+    def _fill_original_score(self, sample):
         grp = self.grouped_original_scores.get_group(sample)
         paths = grp['Term'].values
         scores = grp['ES'].values
@@ -51,20 +48,22 @@ class WeightOptimization:
         disease = lb[ lb['label']==1 ]['sample'].unique()
         self.hsa = df[ df['Name'].isin(healthy) ][ ['Name', 'Term', 'ES'] ]
         self.dsa = df[ df['Name'].isin(disease) ][ ['Name', 'Term', 'ES'] ]
+        self.grouped_original_scores = self.dsa.groupby('Name')
         
         hmean = self.hsa[ ['Term', 'ES'] ].groupby('Term').mean()
         dmean = self.dsa[ ['Term', 'ES'] ].groupby('Term').mean()
         diff = dmean['ES'] - hmean['ES']
         
-        dff = pd.DataFrame( index=hmean.index )
-        dff['diff_mean'] = diff
-        dff['abs_diff_mean'] = [ abs(x) for x in dff['diff_mean'].values ]
-        dff['healthy_mean'] = hmean['ES']
-        dff['disease_mean'] = dmean['ES']
-        dff.to_csv( f'{fout}/table_means.tsv', sep='\t' )
+        if( not os.path.isfile( f'{fout}/table_means.tsv' ) ):
+            dff = pd.DataFrame( index=hmean.index )
+            dff['diff_mean'] = diff
+            dff['abs_diff_mean'] = [ abs(x) for x in dff['diff_mean'].values ]
+            dff['healthy_mean'] = hmean['ES']
+            dff['disease_mean'] = dmean['ES']
+            dff.to_csv( f'{fout}/table_means.tsv', sep='\t' )
         self.tmeans = f'{fout}/table_means.tsv'
         
-    def compute_scoring_matrix( approved_drugs, w1, w2, w3):
+    def compute_scoring_matrix(self, approved_drugs, w1, w2, w3):
         fout = self.folder_out
         
         print("\t\tComputing modified pathway scores for disease samples")
@@ -79,10 +78,10 @@ class WeightOptimization:
                 rel_drug_path[d]={}
             rel_drug_path[d][p]=s
         
-        dfmean = pd.read_csv( f'{fout}/table_means.tsv', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
         #gb = dsa.groupby(['Name', 'Term'])
-        gb = dsa.groupby('Term')
-        samples = dsa['Name'].unique()
+        gb = self.dsa.groupby('Term')
+        samples = self.dsa['Name'].unique()
         ns = len(samples)
         
         drugs = set(rel_drug_path.keys())
@@ -124,7 +123,9 @@ class WeightOptimization:
                 
         return df
 
-    def evaluate(df, trained_model):
+    def evaluate(self, df, trained_model):
+        fout = self.folder_out
+        
         gb = df.groupby( ['drug', 'sample'] )
         drugs = set( df['drug'].unique() )
         samples = set( df['sample'].unique() )
@@ -133,7 +134,7 @@ class WeightOptimization:
         for drug in tqdm( drugs ):
             xtest = []
             for sample in samples:
-                row = _fill_original_score(sample)
+                row = self._fill_original_score(sample)
                 svals = [ str(x) for x in list(row.values()) ]
                 log = f'{sample}\tbefore\t'+('\t'.join( svals ))+'\n'
                 
@@ -163,7 +164,7 @@ class WeightOptimization:
         print('---> score:', score, resdf['label_changed_ratio'].values )
         return score
 
-    def objective(trial):
+    def objective(self, trial):
         fout = self.folder_out
         
         trained_model = joblib.load( f'{fout}/selected_model')
@@ -178,22 +179,21 @@ class WeightOptimization:
         w3 = trial.suggest_int("w3", 1, 30)
 
         #mcs = compute_scoring_matrix( approved_drugs, w1, w2, w3)
-        mcs = compute_scoring_matrix( ct_drugs, w1, w2, w3)
-        score = evaluate(mcs, trained_model)
+        mcs = self.compute_scoring_matrix( ct_drugs, w1, w2, w3)
+        score = self.evaluate(mcs, trained_model)
         
         return score
 
-    def run_optimization():
+    def run(self):
         fout = self.folder_out
         
-        if( not os.path.isfile( f'{fout}/table_means.tsv' ) ):
-            self._get_means();
+        self._get_means();
         
         study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=100)
+        study.optimize( self.objective, n_trials=100)
         print(study.best_trial)
         
-        ws = study.best_trial
+        ws = study.best_trial.params
         f=open( f"{fout}/best_weights.tsv", "w")
         f.write("weight\tvalue\n")
         for k in ws:

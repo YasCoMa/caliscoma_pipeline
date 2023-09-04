@@ -25,7 +25,12 @@ class DrugRankingAnalysis:
         
         self.label_file = label_file
         
+        if( model == None ):
+            model = f"{self.folder_out}/selected_model"
         self.model = model
+        
+        if( tmeans == None ):
+            tmeans = f"{self.folder_out}/table_means.tsv"
         self.tmeans = tmeans
         self.n_features_model = n_features_model
         
@@ -34,7 +39,7 @@ class DrugRankingAnalysis:
             print (f'Error - {identifier}: The modified pathway score file for disease samples was not found. You have to run the previous step of the pipeline.')
         else:
             df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
-            if( lbfile!=None ):
+            if( label_file!=None ):
                 lbfile = f'{folder}/{self.label_file}'
                 lb = pd.read_csv(lbfile, sep='\t')
                 disease = lb[ lb['label']==1 ]['sample'].unique()
@@ -83,11 +88,12 @@ class DrugRankingAnalysis:
                     row[ p ] = s
                     
                 temp = list( row.values() ) 
-                if( len(temp) > self.n_features_model):
-                    temp = temp[:self.n_features_model]
-                if( len(temp) < self.n_features_model):
-                    while len(temp) < self.n_features_model:
-                        temp.append(0)
+                if( self.label_file == None ):
+                    if( len(temp) > self.n_features_model):
+                        temp = temp[:self.n_features_model]
+                    if( len(temp) < self.n_features_model):
+                        while len(temp) < self.n_features_model:
+                            temp.append(0)
                         
                 xtest.append( temp )
             
