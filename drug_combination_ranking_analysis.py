@@ -10,7 +10,6 @@ workflow_path = os.environ.get('path_workflow')
 if(workflow_path[-1]=='/'):
     workflow_path = workflow_path[:-1]
     
-
 class DrugCombinationAnalysis:
     
     def __init__(self, folder, identifier, label_file, model, tmeans, n_features_model, geneset):
@@ -37,22 +36,18 @@ class DrugCombinationAnalysis:
         self.tmeans = tmeans
         self.n_features_model = n_features_model
         
-        if( not os.path.isfile( f'{self.folder_out}/modified_disease_score_by_drug.tsv' ) ):
-            self.flag = False
-            print (f'Error - {identifier}: The modified pathway score file for disease samples was not found. You have to run the previous step of the pipeline.')
-        else:
-            df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
-            if( label_file!=None ):
-                lbfile = f'{folder}/{self.label_file}'
-                lb = pd.read_csv(lbfile, sep='\t')
-                disease = lb[ lb['label']==1 ]['sample'].unique()
-                df = df[ df['Name'].isin(disease) ]
-            df = df[ ['Name', 'Term', 'ES'] ]
-            self.samples = set( df['Name'].unique() )
-            self.dspathways = set( df['Term'].unique() )
-            self.grouped_original_scores = df.groupby('Name')
-            dsa=None
-            df=None
+        df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
+        if( label_file!=None ):
+            lbfile = f'{folder}/{self.label_file}'
+            lb = pd.read_csv(lbfile, sep='\t')
+            disease = lb[ lb['label']==1 ]['sample'].unique()
+            df = df[ df['Name'].isin(disease) ]
+        df = df[ ['Name', 'Term', 'ES'] ]
+        self.samples = set( df['Name'].unique() )
+        self.dspathways = set( df['Term'].unique() )
+        self.grouped_original_scores = df.groupby('Name')
+        dsa=None
+        df=None
     
     def _get_pathway_transfer_mapping(self):
         gmt_lib = self.geneset

@@ -3,11 +3,16 @@ import optuna
 import joblib
 import numpy as np
 import pandas as pd
+import gseapy as gp
 from tqdm import tqdm
+
+workflow_path = os.environ.get('path_workflow')
+if(workflow_path[-1]=='/'):
+    workflow_path = workflow_path[:-1]
 
 class WeightOptimization:
     
-    def __init__(self, folder, identifier, label_file, drug_list_file):
+    def __init__(self, folder, identifier, label_file, drug_list_file, geneset):
         self.flag = True
         
         if(folder[-1]=='/'):
@@ -15,6 +20,8 @@ class WeightOptimization:
         self.folder = folder
             
         self.id = identifier
+        
+        self.geneset = geneset
         
         self.folder_out = folder+'/'+identifier
         
@@ -48,6 +55,7 @@ class WeightOptimization:
         disease = lb[ lb['label']==1 ]['sample'].unique()
         self.hsa = df[ df['Name'].isin(healthy) ][ ['Name', 'Term', 'ES'] ]
         self.dsa = df[ df['Name'].isin(disease) ][ ['Name', 'Term', 'ES'] ]
+        self.dspathways = set( self.dsa['Term'].unique() )
         self.grouped_original_scores = self.dsa.groupby('Name')
         
         hmean = self.hsa[ ['Term', 'ES'] ].groupby('Term').mean()
@@ -62,21 +70,67 @@ class WeightOptimization:
             dff['disease_mean'] = dmean['ES']
             dff.to_csv( f'{fout}/table_means.tsv', sep='\t' )
         self.tmeans = f'{fout}/table_means.tsv'
+                     
+    def _get_combined_drug_pathway_score(self):
+        fout = self.folder_out
+        
+        df = pd.read_csv( f'{workflow_path}/filtered_relation_gene_drug.tsv', sep='\t' )
+        mp = {}
+        for index, row in df.iterrows():
+            drug = row['drug']
+            target = row['target']
+            if(not drug in mp):
+                mp[ drug ] = {}
+            mp[ drug ][ target ] = row['relation']
+            
+        gmt_lib = self.geneset
+        gmt = gp.parser.download_library(gmt_lib, 'Human')
+        
+        rel = {}
+        df = pd.DataFrame( columns=[ 'drug', 'pathway', 'mean_score' ] )
+        total = len(mp.keys())
+        i=1
+        for d in mp:
+            #print(i, '/', total)
+            rel[d] = {}
+            valid = []
+            for p in self.dspathways:
+                targets = mp[d].keys()
+                found_pathway_targets = list( set( targets ).intersection( gmt[p] ) )
+                
+                if( len( found_pathway_targets ) > 0 ) :
+                    list_scores = list( map( lambda x: mp[d][x], found_pathway_targets ))
+                    mean_score = sum(list_scores) / len(found_pathway_targets)
+                    obj = { 'drug': d, 'pathway': p, 'mean_score': mean_score }
+                    valid.append(obj)
+                    
+            for obj in valid:
+                df = pd.concat([df, pd.DataFrame([ obj ])], ignore_index=True)
+                rel[d][ obj['pathway'] ] = obj['mean_score']
+            i+=1
+        
+        if( not os.path.isfile(f'{fout}/drug_pathway_score_table.tsv') ):
+            df.to_csv( f'{fout}/drug_pathway_score_table.tsv', sep='\t', index=None )  
+        
+        return rel
         
     def compute_scoring_matrix(self, approved_drugs, w1, w2, w3):
         fout = self.folder_out
         
         print("\t\tComputing modified pathway scores for disease samples")
         
-        df = pd.read_csv( f'{fout}/drug_pathway_score_table.tsv', sep='\t')
         rel_drug_path = {}
-        for index, row in df.iterrows():
-            d = row['drug']
-            p = row['pathway']
-            s = row['mean_score']
-            if(not d in rel_drug_path):
-                rel_drug_path[d]={}
-            rel_drug_path[d][p]=s
+        if( not os.path.isfile(f'{fout}/drug_pathway_score_table.tsv') ):
+            rel_drug_path = self._get_combined_drug_pathway_score()
+        else:
+            df = pd.read_csv( f'{fout}/drug_pathway_score_table.tsv', sep='\t')
+            for index, row in df.iterrows():
+                d = row['drug']
+                p = row['pathway']
+                s = row['mean_score']
+                if(not d in rel_drug_path):
+                    rel_drug_path[d]={}
+                rel_drug_path[d][p]=s
         
         dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
         #gb = dsa.groupby(['Name', 'Term'])
@@ -161,7 +215,7 @@ class WeightOptimization:
         
         score = len( resdf[ resdf['label_changed_ratio'] > 0.7 ] ) / len( resdf )
         
-        print('---> score:', score, resdf['label_changed_ratio'].values )
+        print('---> score:', score )
         return score
 
     def objective(self, trial):

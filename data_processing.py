@@ -34,25 +34,21 @@ class ProcessPathwayScores:
         self.geneset = geneset
         
         self.folder_out = folder+'/'+identifier
-        if( os.path.isdir(self.folder_out) ):
+        if( expression_file.endswith('.tsv.gz') ):
+            self.raw_data = pd.read_csv( f'{folder}/{expression_file}', compression='gzip', sep='\t'  )
+        elif( expression_file.endswith('.tsv') ):
+            self.raw_data = pd.read_csv( f'{folder}/{expression_file}', sep='\t'  )
+        else:
             self.flag=False
-            print( f'Information - Skipping since the experiment [{identifier}] was already processed')
-        
+            print('Error - The expression file could not be loaded, check if it is a .tsv or tsv.gz (compressed) file.')
+    
         if(self.flag):
-            if( expression_file.endswith('.tsv.gz') ):
-                self.raw_data = pd.read_csv( f'{folder}/{expression_file}', compression='gzip', sep='\t'  )
-            elif( expression_file.endswith('.tsv') ):
-                self.raw_data = pd.read_csv( f'{folder}/{expression_file}', sep='\t'  )
-            else:
+            cols = self.raw_data.columns.tolist()
+            if( not ( ('submitted_sample_id' in cols) and ('gene_id' in cols) and ('raw_read_count' in cols) ) ):                
                 self.flag=False
-                print('Error - The expression file could not be loaded, check if it is a .tsv or tsv.gz (compressed) file.')
-        
-            if(self.flag):
-                cols = self.raw_data.columns.tolist()
-                if( not ( ('submitted_sample_id' in cols) and ('gene_id' in cols) and ('raw_read_count' in cols) ) ):                
-                    self.flag=False
-                    print('Error - The mandatory columns were not found in the expression file')
-                else:
+                print('Error - The mandatory columns were not found in the expression file')
+            else:
+                if( not os.path.isdir( self.folder_out ) ):
                     os.system( f"mkdir {self.folder_out}" ) 
         
     def _get_gene_names(self):

@@ -2,6 +2,8 @@
 import os
 import json
 import sys
+import time
+from datetime import datetime
 import pandas as pd
 
 workflow_path = os.environ.get('path_workflow')
@@ -10,11 +12,11 @@ if(workflow_path==None):
     
 if(workflow_path[-1]=='/'):
     workflow_path = workflow_path[:-1]
-
 sys.path.insert(0, workflow_path)
+from utils import process_memory
 
 from data_processing import ProcessPathwayScores
-from build_scoring_matrix import BuildScoringMatrix
+from build_model import BuildModel
 from drug_ranking_analysis import DrugRankingAnalysis
 from weight_optimization_action import WeightOptimization
 from drug_combination_ranking_analysis import DrugCombinationAnalysis
@@ -166,6 +168,22 @@ class Pipeline_drugResponseCalibration:
             print("Information - pathway_geneset is missing, reverting to KEGG_2021_HUMAN ")
             
         return path
+        
+    def _profile(self, folder, obj, description, call, drug_list, weights):
+        
+        tbefore = time.time()
+        membefore = process_memory()
+        
+        result = eval( f"obj.{call}" )
+        
+        diffMem = process_memory() - membefore
+        diffTime = time.time() - tbefore
+        timeExec = datetime.now().strftime("%Y-%m-%d, %H:%M:%S")
+        
+        with open( f'{folder}/log_execution_details.tsv', 'a') as f:
+            f.write( f"{description}\t{timeExec}\t{diffTime}\t{diffMem}\n" )
+        
+        return result
     
     def run(self, option, config):
         if( self._validate_input(config) ):
@@ -177,56 +195,60 @@ class Pipeline_drugResponseCalibration:
                     ide = e['identifier']
                     print(f'Experiment [{ide}]')
                     
+                    folder = e['folder']
+                    if(folder[-1]=='/'):
+                        folder = folder[:-1]
+                    folder = folder+'/'+ide
+                    if(not os.path.isdir(folder) ):
+                        os.system(f"mkdir {folder}")
+                        
+                    if( not os.path.isfile(f'{folder}/log_execution_details.tsv') ):
+                        with open( f'{folder}/log_execution_details.tsv', 'w') as f:
+                            f.write( f"description\tmoment\texecution_time\tmemory_usage\n" )
+                    
                     normalization, gtf = self._check_norm(e)
                     geneset = self._check_geneset(e)
+                    
+                    weights = None
+                    drug_list = None
                     
                     flagop = ( option==0 ) 
                     if( flagop or option==1):
                         print('\tStep 1 - Running data processing')
                         
                         a = ProcessPathwayScores( e['folder'], e['expression_file'], e['identifier'], normalization, gtf, geneset )
-                        a.run()
+                        self._profile(folder, a, 'Step 1 - Running data processing', 'run()', drug_list, weights)
+                        #a.run()
                         
                     if( flagop or option==2): # drug-pathway-gene- ScoringMatrix
-                        print('\tStep 2 - Building samples pathway scoring matrix and training model')
+                        print('\tStep 2 - Building model')
                         
                         flag_label = self._validate_file(e, 'labels_file')
-                        if( not flag_label ):
-                            flag_model = self._validate_file(e, 'trained_model')
-                            flag_tm = self._validate_file(e, 'means_table_file')
-                        
-                        if( flag_label or (flag_model and flag_tm ) ):
-                            labels = None
-                            model = None
-                            tmeans = None
+                        if( flag_label ):
+                            labels = e['labels_file']
                             
-                            if(flag_label):
-                                labels = e['labels_file']
-                            else:    
-                                if(flag_model):
-                                    model = e['trained_model']
-                                if(flag_tm):
-                                    tmeans = e['means_table_file']
-                            
-                            weights = self._validate_weights(e)
-                            a = BuildScoringMatrix( e['folder'], e['identifier'], labels, geneset, model, tmeans )
-                            a.run(weights)
+                            a = BuildModel( e['folder'], e['identifier'], labels )
+                            self._profile(folder, a, 'Step 2 - Building model', 'run()', drug_list, weights)
+                            #a.run()
                         
                     if( flagop or option==3): # Optimizing weights
-                        print('\tStep 3 - Optimizing scoring weights')
+                        print('\tStep 3 - Optimizing scoring matrix weights')
                         
                         flag_label = self._validate_file(e, 'labels_file')
                         flag_druglist = self._validate_file(e, 'drug_list_file')
                         
                         if( flag_label and flag_druglist ):
-                            a = WeightOptimization( e['folder'], e['identifier'], e['labels_file'], e['drug_list_file'] )
-                            a.run()
+                            a = WeightOptimization( e['folder'], e['identifier'], e['labels_file'], e['drug_list_file'], geneset )
+                            self._profile(folder, a, 'Step 3 - Optimizing scoring matrix weights', 'run()', drug_list, weights)
+                            #a.run()
                         
                     if( flagop or option==4): # Drug ranking individual evaluation
-                        print('\tStep 4 - Applying drug prioritization')
+                        print('\tStep 4 - Calculating modified sample scoring matrix & Applying individual drug prioritization')
                         
                         flag_label = self._validate_file(e, 'labels_file')
                         nf = 0
+                        flag_model = False
+                        flag_tm = False
                         if( not flag_label ):
                             flag_model = self._validate_file(e, 'trained_model')
                             flag_tm = self._validate_file(e, 'means_table_file')
@@ -243,14 +265,19 @@ class Pipeline_drugResponseCalibration:
                             tmeans = None
                             if(flag_tm):
                                 tmeans = e['means_table_file']
-                            a = DrugRankingAnalysis( e['folder'], e['identifier'], labels, model, tmeans, nf )
-                            a.run()
+                                
+                            weights = self._validate_weights(e)
+                            a = DrugRankingAnalysis( e['folder'], e['identifier'], labels, model, tmeans, nf, geneset )
+                            self._profile(folder, a, 'Step 4 - Calculating modified sample scoring matrix & Applying individual drug prioritization', 'run(weights)', drug_list, weights)
+                            #a.run(weights)
                         
                     if( flagop or option==5): # Drug combination ranking and evaluation
                         print('\tStep 5 - Applying drug combination prioritization')
                         
                         flag_label = self._validate_file(e, 'labels_file')
                         nf = 0
+                        flag_model = False
+                        flag_tm = False
                         if( not flag_label ):
                             flag_model = self._validate_file(e, 'trained_model')
                             flag_tm = self._validate_file(e, 'means_table_file')
@@ -270,8 +297,10 @@ class Pipeline_drugResponseCalibration:
                                 tmeans = e['means_table_file']
                             
                             weights = self._validate_weights(e)
+                            drug_list = e['drug_combination_file']
                             a = DrugCombinationAnalysis( e['folder'], e['identifier'], labels, model, tmeans, nf, geneset )
-                            a.run( e['drug_combination_file'], weights)
+                            self._profile(folder, a, 'Step 5 - Applying drug combination prioritization', 'run(drug_list, weights)', drug_list, weights)
+                            #a.run( drug_list, weights)
                 
             else:
                 print('Error - Invalid option')
@@ -283,15 +312,16 @@ import sys
 
 import argparse
 from argparse import RawTextHelpFormatter
-parser = argparse.ArgumentParser(description=' Caliscoma - Pipeline for drug ranking based on computed pathway scores of disease and healthy samples', formatter_class=RawTextHelpFormatter)
+parser = argparse.ArgumentParser(description=' DReCaS - Pipeline for Drug Response Calibration Simulation based on computed pathway scores of disease and healthy samples', formatter_class=RawTextHelpFormatter)
 
 parser.add_argument("-cf", "--configuration_file", action="store", help="(For both modes) Folder to store the files (use the folder where the required files can be found, ex.: /home/user/experiment/ )\n")
 
 parser.add_argument("-rt", "--running_step", action="store", help="0 - Run all steps\n\
 1 - Run step 1: Data processing\n\
-1 - Run step 2: Optiize scoring weights\n\
-1 - Run step 3: Model training & modified pathway score matrix\n\
-2 - Run step 4: Drug ranking", type=int)
+2 - Run step 2: Model training\n\
+3 - Run step 3: Optimize scoring matrix weights\n\
+4 - Run step 4: Individual Drug ranking\n\
+5 - Run step 5: Drug combination ranking", type=int)
 
 args = parser.parse_args()
 

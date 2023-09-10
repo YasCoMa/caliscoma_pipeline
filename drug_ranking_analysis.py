@@ -3,6 +3,7 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import gseapy as gp
 from tqdm import tqdm
 
 workflow_path = os.environ.get('path_workflow')
@@ -12,8 +13,10 @@ if(workflow_path[-1]=='/'):
 
 class DrugRankingAnalysis:
     
-    def __init__(self, folder, identifier, label_file, model, tmeans, n_features_model):
+    def __init__(self, folder, identifier, label_file, model, tmeans, n_features_model, geneset):
         self.flag = True
+        
+        self.geneset = geneset
         
         if(folder[-1]=='/'):
             folder = folder[:-1]
@@ -34,20 +37,128 @@ class DrugRankingAnalysis:
         self.tmeans = tmeans
         self.n_features_model = n_features_model
         
-        if( not os.path.isfile( f'{self.folder_out}/modified_disease_score_by_drug.tsv' ) ):
-            self.flag = False
-            print (f'Error - {identifier}: The modified pathway score file for disease samples was not found. You have to run the previous step of the pipeline.')
-        else:
-            df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
-            if( label_file!=None ):
-                lbfile = f'{folder}/{self.label_file}'
-                lb = pd.read_csv(lbfile, sep='\t')
-                disease = lb[ lb['label']==1 ]['sample'].unique()
-                df = df[ df['Name'].isin(disease) ]
-            df = df[ ['Name', 'Term', 'ES'] ]
-            self.grouped_original_scores = df.groupby('Name')
-            dsa=None
-            df=None
+        df = pd.read_csv( f'{self.folder_out}/{identifier}_pathway_scores.tsv', sep='\t')
+        if( label_file!=None ):
+            lbfile = f'{folder}/{self.label_file}'
+            lb = pd.read_csv(lbfile, sep='\t')
+            disease = lb[ lb['label']==1 ]['sample'].unique()
+            df = df[ df['Name'].isin(disease) ]
+        self.dsa = df[ ['Name', 'Term', 'ES'] ]
+        self.samples = set( self.dsa['Name'].unique() )
+        self.dspathways = set( self.dsa['Term'].unique() )
+        self.grouped_original_scores = df.groupby('Name')
+        dsa=None
+        df=None
+    
+    def _get_pathway_transfer_mapping(self):
+        gmt_lib = self.geneset
+        gmt = gp.parser.download_library(gmt_lib, 'Human')
+        
+        mp = {}
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )
+        original_paths = set( dfmean.index )
+        for ptarget in self.dspathways:
+            gt = 0
+            chosen = ptarget
+            if( not ptarget in original_paths ):
+                for pmodel in original_paths:
+                    interlen = len( set( gmt[ptarget] ).intersection(set( gmt[pmodel] )) )
+                    if( interlen > gt ):
+                        gt = interlen
+                        chosen = pmodel
+            mp[ptarget] = chosen
+        self.mapping_transfer = mp
+                     
+    def _get_combined_drug_pathway_score(self):
+        fout = self.folder_out
+        
+        df = pd.read_csv( f'{workflow_path}/filtered_relation_gene_drug.tsv', sep='\t' )
+        mp = {}
+        for index, row in df.iterrows():
+            drug = row['drug']
+            target = row['target']
+            if(not drug in mp):
+                mp[ drug ] = {}
+            mp[ drug ][ target ] = row['relation']
+            
+        gmt_lib = self.geneset
+        gmt = gp.parser.download_library(gmt_lib, 'Human')
+        
+        rel = {}
+        df = pd.DataFrame( columns=[ 'drug', 'pathway', 'mean_score' ] )
+        total = len(mp.keys())
+        i=1
+        for d in mp:
+            #print(i, '/', total)
+            rel[d] = {}
+            valid = []
+            for p in self.dspathways:
+                targets = mp[d].keys()
+                found_pathway_targets = list( set( targets ).intersection( gmt[p] ) )
+                
+                if( len( found_pathway_targets ) > 0 ) :
+                    list_scores = list( map( lambda x: mp[d][x], found_pathway_targets ))
+                    mean_score = sum(list_scores) / len(found_pathway_targets)
+                    obj = { 'drug': d, 'pathway': p, 'mean_score': mean_score }
+                    valid.append(obj)
+                    
+            for obj in valid:
+                df = pd.concat([df, pd.DataFrame([ obj ])], ignore_index=True)
+                rel[d][ obj['pathway'] ] = obj['mean_score']
+            i+=1
+                
+        df.to_csv( f'{fout}/drug_pathway_score_table.tsv', sep='\t', index=None )   
+        
+        return rel
+        
+    def compute_scoring_matrix(self, w1, w2, w3):
+        print("\t\tComputing modified pathway scores for disease samples")
+        
+        fout = self.folder_out
+        
+        rel_drug_path = self._get_combined_drug_pathway_score()
+        self._get_pathway_transfer_mapping()
+        
+        dfmean = pd.read_csv( f'{self.tmeans}', sep='\t', index_col=0 )[ ['abs_diff_mean'] ]
+        gb = self.dsa.groupby(['Name', 'Term'])
+        samples = self.dsa['Name'].unique()
+        
+        drugs = list(rel_drug_path.keys())
+        
+        f = open( f'{fout}/modified_disease_score_by_drug.tsv', 'w' )
+        f.write('drug\tpathway\tsample\tmes\n')
+        for drug in tqdm( drugs ):
+            for pathway in rel_drug_path[ drug ]:
+                drug_pathway_score = rel_drug_path[ drug ][ pathway ]
+                signal = 1
+                if( drug_pathway_score < 0 ):
+                    signal = -1
+                elif( drug_pathway_score == 0 ):
+                    signal = 0
+                
+                diff_mean_pathway = dfmean.loc[ self.mapping_transfer[pathway], 'abs_diff_mean']
+                
+                for sample in samples:
+                    sample_original_score = gb.get_group( (sample, pathway) )['ES'].values[0]
+                    
+                    modified_score = sample_original_score
+                    
+                    if( drug_pathway_score != 0 ):
+                        modified_score *= signal
+                        
+                        if( diff_mean_pathway > 0):
+                            q2 = np.quantile( dfmean['abs_diff_mean'], 0.5 )
+                            q3 = np.quantile( dfmean['abs_diff_mean'], 0.75 )
+                            
+                            if( diff_mean_pathway > q3 ):
+                                modified_score *= w1
+                            elif( diff_mean_pathway >= q2 ):
+                                modified_score *= w2
+                            else:
+                                modified_score *= w3
+                            
+                    f.write( "%s\t%s\t%s\t%.6f\n" %(drug, pathway, sample, modified_score) )
+        f.close()
             
     def _fill_original_score(self, sample):
         grp = self.grouped_original_scores.get_group(sample)
@@ -126,6 +237,7 @@ class DrugRankingAnalysis:
             f.write( s+'\t'+( '\t'.join( vals ) )+'\n' )
         f.close()
     
-    def run(self):
+    def run(self, weights):
         if(self.flag):
+            self.compute_scoring_matrix( weights[0], weights[1], weights[2] )
             self.evaluate_rank_drug()
