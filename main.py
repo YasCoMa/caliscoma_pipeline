@@ -95,19 +95,31 @@ class Pipeline_drugResponseCalibration:
     
     def _validate_weights(self, e):
         weights = [20, 5, 10]
+        flag = True
+        
+        folder = e['folder']
+        ide = e["identifier"]
+        if(folder[-1]=='/'):
+            folder = folder[:-1]
+        
+        msg = ""    
         if( 'optimized_weights_file' in e ):
             if ( (e['optimized_weights_file']!='' and e['optimized_weights_file']!=None) ):
-                folder = e['folder']
-                ide = e["identifier"]
-                if(folder[-1]=='/'):
-                    folder = folder[:-1]
                 if( os.path.isfile( e['optimized_weights_file'] ) ):
                     df = pd.read_csv(e['optimized_weights_file'], sep='\t' )
                     weights = list(df['value'].values)
+                    flag = False
                 else:
-                    print (f'Information - {ide}: Optimized weights file was not found - switching to default weights')
+                    msg = f'Information - {ide}: Optimized weights file was not found - switching to default weights'
             else:
-                print("Information - Optimized weights file is present but it is empty - switching to default weights")
+                msg = "Information - Optimized weights file is present but it is empty - switching to default weights"
+            
+        if(flag):
+            if( os.path.isfile( f"{folder}/{ide}/best_weights.tsv" ) ):
+                df = pd.read_csv( f"{folder}/{ide}/best_weights.tsv", sep='\t' )
+                weights = list(df['value'].values)
+                msg = ""
+        print(msg)
             
         return weights
     
@@ -120,7 +132,7 @@ class Pipeline_drugResponseCalibration:
                     df = df[ ['Name', 'Term', 'ES'] ]
                     n_features_model = len(df['Term'].unique())
                 else:
-                    print (f'Error - {ide}: Original model exp samples scores file was not found ')
+                    print (f'Error - Original model exp samples scores file was not found ')
             else:
                 print("Error - Original model exp samples scores file is present but it is empty ")
         else:

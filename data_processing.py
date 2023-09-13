@@ -100,8 +100,7 @@ class ProcessPathwayScores:
                 
         #print( 'Mapped: ', len(mapp.keys()), '/', len(genes) )
 
-    def _test_map_genes(self):
-        df = self.raw_data
+    def _test_map_genes(self, df):
         genes = df['gene_id'].values
         
         ens = 0
@@ -136,14 +135,15 @@ class ProcessPathwayScores:
         fout = self.folder_out
         ide = self.id
         
-        df = self._test_map_genes()
-        
         df = df[ ['gene_id','submitted_sample_id','raw_read_count' ] ]
+        df = self._test_map_genes(df)
+        
         self.raw_data = None
         
         fil = df.groupby('gene_id').count().sort_values(by='raw_read_count')
+        fil = fil[ fil['submitted_sample_id'] <= len(df['submitted_sample_id'].unique()) ]
         n = fil.tail(1).iloc[0,0]
-        indexok = list( fil[ fil['raw_read_count'] > (n/2) ].index )
+        indexok = list( fil[ fil['raw_read_count'] > (n/2) ].index ) # removing genes that are not present in at least half of the sample ids
         df = pd.pivot_table( df, values='raw_read_count', index=['gene_id'], columns=['submitted_sample_id'], aggfunc = np.sum) # generating gct table for single sample analysis in gseapy
         df = df.loc[indexok, :].fillna(0)
 

@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.linear_model import ElasticNetCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
+from imblearn.over_sampling import SMOTE
 from tqdm import tqdm
 
 workflow_path = os.environ.get('path_workflow')
@@ -68,6 +69,13 @@ class BuildModel:
         self.dsa = df[ df['Name'].isin(disease) ][ ['Name', 'Term', 'ES'] ]
         
         X, y = self._prepare_dataset_xy( )
+        
+        n = len(lb)
+        nhsa = len(self.hsa['Name'].unique())
+        hproportion = nhsa / n
+        if(hproportion >= 0.6 or hproportion<=0.4):
+            oversample = SMOTE()
+            X, y = oversample.fit_resample(X, y)
         
         if( not os.path.isfile( f'{fout}/table_means.tsv' ) ):
             hmean = self.hsa[ ['Term', 'ES'] ].groupby('Term').mean()
