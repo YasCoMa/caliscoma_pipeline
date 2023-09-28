@@ -67,6 +67,7 @@ This pipeline contains the following functions:
 - Run only drug combination evaluation: ````python3 main.py -rt 5 -cf config_transfer_options.json````
 
 ## Reference
+Martins, Y. C. (2023). Multi-task analysis of gene expression data on cancer public datasets. medRxiv, 2023-09.
 
 ## Bug Report
 Please, use the [Issues](https://github.com/YasCoMa/caliscoma_pipeline/issues) tab to report any bug.
